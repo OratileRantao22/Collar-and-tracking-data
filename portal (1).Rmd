@@ -1,0 +1,478 @@
+---
+title: "Portal"
+author: "OratileRantao"
+date: "2026-08-03"
+output: html_document
+---
+
+```{r}
+install.packages("shiny")
+install.packages("shinydashboard")
+install.packages("readxl")
+install.packages("DT")
+install.packages("leaflet")
+install.packages("leaflet.extras")
+install.packages("dplyr")
+install.packages("rlang")
+install.packages("readr")
+install.packages("data.table")
+install.packages("ggplot2")
+```
+
+```{r}
+library(shiny)
+library(shinydashboard)
+library(readxl)
+library(DT)
+library(leaflet)
+library(leaflet.extras)
+library(dplyr)
+library(rlang)
+library(readr)
+library(data.table)
+library(ggplot2)
+```
+
+```{r}
+collars <- read.csv2("Collar data(Sheet1).csv", sep = ",")
+
+```
+
+
+```{r}
+# Check that the data loaded correctly
+head(collars,2)
+str(collars)
+names(collars)
+colnames(collars)
+```
+
+```{r}
+# User Interface
+
+
+ui <- dashboardPage(
+
+
+# Dashboard Header
+dashboardHeader(
+
+title = "Wildlife Collar Monitoring Portal"
+
+),
+
+
+# Sidebar
+dashboardSidebar(
+
+sidebarMenu(
+
+menuItem(
+"Dashboard",
+tabName="dashboard",
+icon=icon("dashboard")
+),
+
+menuItem(
+"Collar Inventory",
+tabName="inventory",
+icon=icon("table")
+),
+
+ menuItem(
+"Collar Activity",
+tabName = "activity",
+icon = icon("chart-line")
+),
+
+menuItem(
+"Interactive Map",
+tabName="map",
+icon=icon("globe")
+),
+
+menuItem(
+"Hotspot Map",
+tabName="hotspot",
+icon=icon("fire")
+),
+
+
+menuItem(
+"Immobile reasons",
+tabName="immobile",
+icon=icon("chart-bar")
+)
+)
+),
+
+
+
+
+# Dashboard Body
+
+
+dashboardBody(
+
+tabItems(
+
+
+# Dashboard Page
+
+
+tabItem(
+
+tabName="dashboard",
+
+fluidRow(
+
+valueBoxOutput("total"),
+
+valueBoxOutput("active"),
+
+valueBoxOutput("inactive"),
+
+valueBoxOutput("redeployed")
+
+)
+
+),
+
+
+# Inventory Page
+
+
+tabItem(
+
+tabName="inventory",
+
+DTOutput("table")
+
+),
+
+tabItem(
+  tabName = "activity",
+
+  fluidRow(
+
+    box(
+      title = "Filters",
+      width = 12,
+
+      selectInput(
+        "activity_park",
+        "Select Park:",
+        choices = c(
+    "Akagera, Rwanda",
+    "Badingilo & Boma, South Sudan",
+    "Bangweulu, Zambia",
+    "Bazaruto, Mozambique",
+    "Chinko, CAR",
+    "Ennedi, Chad",
+    "Gambella, Ethiopia",
+    "Garamba, DRC",
+    "Iona, Angola",
+    "Kafue, Zambia",
+    "Kundelungu, DRC",
+    "Liuwa Plain, Zambia",
+    "Liwonde, Malawi",
+    "Majete, Malawi",
+    "Mangochi, Malawi",
+    "Matusadona, Zimbabwe",
+    "Nkhotakota, Malawi",
+    "Nyungwe, Rwanda",
+    "Odzala-Kokoua, Congo",
+    "Pendjari, Benin",
+    "Sinjiara, Chad",
+    "W, Benin",
+    "Zakouma, Chad"
+  )
+      ),
+
+      dateRangeInput(
+        "activity_dates",
+        "Select Period:",
+        start = "2023-01-01",
+        end = Sys.Date()
+      )
+    )
+  ),
+
+  fluidRow(
+
+    box(
+      title = "Active and Newly Deployed Collars",
+      width = 12,
+
+      DT::dataTableOutput("activity_table")
+    )
+  ),
+
+  fluidRow(
+
+    box(
+      title = "Monthly Collar Activity",
+      width = 12,
+
+      plotOutput(
+        "monthly_activity",
+        height = "500px"
+      )
+    )
+  )
+),
+
+
+# Map Pages
+
+
+tabItem(
+
+tabName="map",
+
+leafletOutput("map",height=700)
+
+),
+
+tabItem(
+
+tabName="hotspot",
+
+leafletOutput("hotspot",height=700)
+
+),
+
+
+#Immobile reasons
+tabItem(
+tabName = "immobile",
+fluidRow(
+  box(
+    title = "Collar Reasons",
+    width = 12,
+    status = "primary",
+    solidHeader = TRUE,
+    plotOutput("reason_graph", height = "500px")
+)
+)
+)
+)
+)
+)
+
+
+```
+
+```{r}
+# Server3
+
+
+server <- function(input, output){
+
+
+# Dashboard Statistics
+
+output$total <- renderValueBox({
+
+valueBox(
+
+value=nrow(collars),
+
+subtitle="Total Collars",
+
+icon=icon("paw"),
+
+color="green"
+
+)
+
+})
+
+
+
+# Active collars
+
+
+output$active <- renderValueBox({
+
+valueBox(
+
+value=sum(collars$State=="Active"),
+
+subtitle="Active",
+
+icon=icon("check"),
+
+color="blue"
+
+)
+
+})
+
+
+# Deactivated collars
+
+
+output$inactive <- renderValueBox({
+
+valueBox(
+
+value=sum(collars$State=="Deactivated"),
+
+subtitle="Deactivated",
+
+icon=icon("times"),
+
+color="red"
+
+)
+
+})
+
+# Redeployed collars
+
+
+output$redeployed <- renderValueBox({
+
+valueBox(
+
+value=sum(collars$State=="Redeployed"),
+
+subtitle="Redeployed",
+
+icon=icon("star"),
+
+color="yellow"
+
+)
+
+})
+
+
+# Interactive Table
+
+
+output$table <- renderDT({
+
+datatable(
+
+collars,
+
+filter="top",
+options=list(
+        
+pageLength=15,
+        
+scrollX=TRUE
+
+)
+
+)
+
+})
+
+#Collar Activity
+filtered_activity <- reactive({
+    
+  collars %>%
+    filter(
+      Park == input$activity_park,
+      Date.Deployed <= input$activity_dates[2]
+    )
+    
+})
+
+
+# Interactive Map
+
+# Convert GPS coordinates to numeric
+collars$GPS.Y <- as.numeric(as.character(collars$GPS.Y))
+collars$GPS.X <- as.numeric(as.character(collars$GPS.X))
+
+# Remove rows with missing coordinates
+collars_map <- collars %>%
+  filter(!is.na(GPS.Y), !is.na(GPS.X))
+
+output$map <- renderLeaflet({
+
+  leaflet(data = collars_map) %>%
+    addTiles() %>%
+    addCircleMarkers(
+      lng = ~GPS.Y,
+      lat = ~GPS.X,
+      radius = 6,
+      color = "blue",
+      fillColor = "red",
+      fillOpacity = 0.8,
+      stroke = TRUE,
+      popup = ~paste0(
+       "<b>Collar ID:</b> ", SAT.ID,
+       "<br><b>Individual:</b> ", Name.of.individual,
+       "<br><b>Species:</b> ", Species,
+       "<br><b>Sex:</b> ", D_Sex,
+       "<br><b>Brand:</b> ", Brand,
+       "<br><b>State:</b> ", State,
+       "<br><b>Date Deployed:</b> ", Date.Deployed,
+       "<br><b>Last Fix:</b> ", Date.Last.Fix
+      )
+    )
+
+})
+
+
+# Convert GPS coordinates to numeric
+collars$Last.Fix.Y <- as.numeric(as.character(collars$Last.Fix.Y))
+collars$Last.Fix.X <- as.numeric(as.character(collars$Last.Fix.X))
+
+# Remove rows with missing coordinates
+collars_map <- collars %>%
+  filter(!is.na(Last.Fix.Y), !is.na(Last.Fix.X))
+
+output$hotspot <- renderLeaflet({
+
+  leaflet(data = collars_map) %>%
+    addTiles() %>%
+    addHeatmap(
+      lng = ~Last.Fix.Y,
+      lat = ~Last.Fix.X,
+      radius = 25,
+      blur = 10,
+      max = 0.05,
+    )
+
+})
+
+#Reasons collars go immobile
+output$reason_graph <- renderPlot({
+  
+  # Count the reasons
+  reason_counts <- table(collars$Reason)
+  
+  # Remove missing or blank reasons
+  reason_counts <- reason_counts[names(reason_counts) != ""]
+  
+  # Make space on the left for long labels
+  par(mar = c(5, 15, 4, 2))
+  
+  # Create horizontal bar chart
+  barplot(
+    reason_counts,
+    main = "Number of Collars by Reason",
+    xlab = "Number of Collars",
+    ylab = "",
+    horiz = TRUE,
+    las = 1,
+    cex.names = 0.9
+  )
+  
+})
+
+}
+```
+
+```{r}
+# Run Shiny App
+shinyApp(ui,server)
+```
+
+

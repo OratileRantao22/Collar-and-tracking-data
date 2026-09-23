@@ -1,0 +1,2763 @@
+---
+title: "Untitled"
+author: "OratileRantao"
+date: "2026-09-08"
+output: html_document
+---
+
+
+```{r}
+install.packages("shiny")
+install.packages("shinydashboard")
+install.packages("readxl")
+install.packages("DT")
+install.packages("leaflet")
+install.packages("leaflet.extras")
+install.packages("dplyr")
+install.packages("rlang")
+install.packages("readr")
+install.packages("data.table")
+install.packages("ggplot2")
+install.packages("lubridate")
+install.packages("stringr")
+```
+
+```{r}
+library(shiny)
+library(shinydashboard)
+library(readxl)
+library(DT)
+library(leaflet)
+library(leaflet.extras)
+library(dplyr)
+library(rlang)
+library(readr)
+library(data.table)
+library(ggplot2)
+library(lubridate)
+library(stringr)
+```
+
+```{r}
+collars <- read.csv2("Collar data(Sheet1).csv", sep=",")
+```
+
+
+```{r}
+# Check that the data loaded correctly
+head(collars,2)
+str(collars)
+names(collars)
+colnames(collars)
+
+head(collars$Date.Deployed)
+class(collars$Date.Deployed)
+```
+
+
+
+
+```{r}
+
+# USER INTERFACE
+
+ui <- dashboardPage(
+  
+  
+  # HEADER
+ 
+  
+  dashboardHeader(
+    title = "Wildlife Collar Monitoring Portal"
+  ),
+  
+  
+  # SIDEBAR
+  
+  
+  dashboardSidebar(
+    
+    sidebarMenu(
+      
+      menuItem(
+        "Dashboard",
+        tabName = "dashboard",
+        icon = icon("dashboard")
+      ),
+      
+      menuItem(
+        "Collar Inventory",
+        tabName = "inventory",
+        icon = icon("table")
+      ),
+      
+      menuItem(
+        "Collar Activity",
+        tabName = "activity",
+        icon = icon("chart-line")
+      ),
+      
+      menuItem(
+        "Redeployment Register",
+        tabName = "redeployment",
+        icon = icon("rotate")
+      ),
+      
+      menuItem(
+        "Interactive Map",
+        tabName = "map",
+        icon = icon("globe")
+      ),
+      
+      menuItem(
+        "Hotspot Map",
+        tabName = "hotspot",
+        icon = icon("fire")
+      ),
+      
+      menuItem(
+        "Immobility Reasons",
+        tabName = "immobile",
+        icon = icon("chart-bar")
+      ),
+      
+      menuItem(
+        "Movement Analysis",
+        tabName = "movement",
+        icon = icon("paw")
+      )
+      
+    )
+  ),
+  
+  
+  # DASHBOARD BODY
+  
+  
+  dashboardBody(
+    
+    tabItems(
+      
+      
+      # PAGE 1 - DASHBOARD
+      
+      tabItem(
+        
+        tabName = "dashboard",
+        
+        fluidRow(
+          
+          box(
+            title = "Park Search",
+            width = 12,
+            status = "primary",
+            solidHeader = TRUE,
+            
+            selectizeInput(
+              "park_search",
+              "Search for a Park:",
+              choices = c("All Parks", sort(unique(collars$Parks))),
+              selected = "All Parks",
+              multiple = FALSE,
+              options = list(
+                placeholder = "Type a park name..."
+              )
+            )
+          )
+          
+        ),
+        
+        fluidRow(
+          
+          valueBoxOutput(
+            "total",
+            width = 3
+          ),
+          
+          valueBoxOutput(
+            "active",
+            width = 3
+          ),
+          
+          valueBoxOutput(
+            "inactive",
+            width = 3
+          ),
+          
+          valueBoxOutput(
+            "redeployed",
+            width = 3
+          )
+          
+        ),
+        
+        fluidRow(
+          
+          box(
+            title = "Collar Activity Per Year",
+            width = 12,
+            status = "primary",
+            solidHeader = TRUE,
+            
+            plotOutput(
+              "yearly_activity",
+              height = "500px"
+            )
+          )
+          
+        )
+        
+      ),
+      
+      
+     
+      # PAGE 2 - COLLAR INVENTORY
+      
+      
+      tabItem(
+        
+        tabName = "inventory",
+        
+        box(
+          title = "Collar Inventory",
+          width = 12,
+          status = "primary",
+          solidHeader = TRUE,
+          
+          DTOutput("table")
+        )
+        
+      ),
+      
+      
+     
+      # PAGE 3 - COLLAR ACTIVITY
+    
+
+tabItem(
+
+  tabName = "activity",
+
+  h2("Collar Activity"),
+
+
+  # =======================================================
+  # ACTIVITY FILTERS
+  # =======================================================
+
+  fluidRow(
+
+    box(
+
+      title = "Activity Filters",
+      width = 12,
+      status = "primary",
+      solidHeader = TRUE,
+
+      fluidRow(
+
+        # -------------------------------------------------
+        # PARK SELECTION
+        # -------------------------------------------------
+
+        column(
+
+          4,
+
+          selectizeInput(
+
+            inputId = "activity_park",
+
+            label = "Search for a Park:",
+
+            choices = c(
+              "All Parks",
+              sort(unique(na.omit(collars$Parks)))
+            ),
+
+            selected = "All Parks",
+
+            multiple = FALSE,
+
+            options = list(
+              placeholder = "Type or select a park..."
+            )
+
+          )
+
+        ),
+
+
+        # -------------------------------------------------
+        # PERIOD SELECTION
+        # -------------------------------------------------
+
+        column(
+
+          4,
+
+          dateRangeInput(
+
+            inputId = "activity_dates",
+
+            label = "Select Period:",
+
+            start = min(
+              collars$Date.Deployed,
+              na.rm = TRUE
+            ),
+
+            end = Sys.Date()
+
+          )
+
+        ),
+
+
+        # -------------------------------------------------
+        # SPECIES SELECTION
+        # -------------------------------------------------
+
+        column(
+
+          4,
+
+          selectizeInput(
+
+            inputId = "activity_species",
+
+            label = "Select Species:",
+
+            choices = c(
+              "All Species",
+              sort(unique(na.omit(collars$Species)))
+            ),
+
+            selected = "All Species",
+
+            multiple = FALSE
+
+          )
+
+        )
+
+      )
+
+    )
+
+  ),
+
+
+  # =======================================================
+  # VALUE BOXES
+  # =======================================================
+
+  fluidRow(
+
+    valueBoxOutput(
+      "activity_new",
+      width = 4
+    ),
+
+    valueBoxOutput(
+      "activity_active",
+      width = 4
+    ),
+
+    valueBoxOutput(
+      "activity_total",
+      width = 4
+    )
+
+  ),
+
+
+  # =======================================================
+  # COLLAR ACTIVITY SUMMARY
+  # =======================================================
+
+  fluidRow(
+
+    box(
+
+      title = "Collar Activity Summary",
+
+      width = 7,
+
+      status = "primary",
+
+      solidHeader = TRUE,
+
+      DTOutput(
+        "activity_table"
+      )
+
+    )
+
+  ),
+
+
+  # =======================================================
+  # COLLARS DEPLOYED WITHIN SELECTED PERIOD
+  # =======================================================
+
+  fluidRow(
+
+    box(
+
+      title = "Collars Deployed Within Selected Period",
+
+      width = 7,
+
+      status = "success",
+
+      solidHeader = TRUE,
+
+      DTOutput(
+        "deployed_within_table"
+      )
+
+    )
+
+  ),
+
+
+  # =======================================================
+  # COLLARS OVERLAPPING SELECTED PERIOD
+  # =======================================================
+
+  fluidRow(
+
+    box(
+
+      title = "Collars Overlapping Selected Period",
+
+      width = 10,
+
+      status = "primary",
+
+      solidHeader = TRUE,
+
+      DTOutput(
+        "overlapping_table"
+      )
+
+    )
+
+  ),
+
+
+  # =======================================================
+  # COLLARS WITH UNKNOWN END DATE
+  # =======================================================
+
+  fluidRow(
+
+    box(
+
+      title = "Collars With Unknown End Date",
+
+      width = 10,
+
+      status = "warning",
+
+      solidHeader = TRUE,
+
+      DTOutput(
+        "unknown_end_table"
+      )
+
+    )
+
+  ),
+
+
+  # =======================================================
+  # MONTHLY COLLAR ACTIVITY
+  # =======================================================
+
+  fluidRow(
+
+    box(
+
+      title = "Monthly Collar Activity",
+
+      width = 12,
+
+      status = "info",
+
+      solidHeader = TRUE,
+
+      plotOutput(
+        "monthly_activity",
+        height = "500px"
+      )
+
+    )
+
+  )
+
+),
+
+
+# PAGE 4- Redeployment register
+
+tabItem(
+
+  tabName = "redeployment",
+
+  h2("Redeployment Register"),
+
+  # -------------------------------------------------------
+  # SEARCH BAR
+  # -------------------------------------------------------
+
+  fluidRow(
+
+    box(
+      title = "Search Collar",
+      width = 12,
+      status = "primary",
+      solidHeader = TRUE,
+
+      textInput(
+        inputId = "redeployment_search",
+        label = "Search by Deployment Code, Collar ID, Individual, Species or Park:",
+        placeholder = "Type to search..."
+      )
+    )
+
+  ),
+
+  # -------------------------------------------------------
+  # REDEPLOYMENT SUMMARY
+  # -------------------------------------------------------
+
+  fluidRow(
+
+    valueBoxOutput(
+      "redeployment_total",
+      width = 4
+    ),
+
+    valueBoxOutput(
+      "redeployment_redeployed",
+      width = 4
+    ),
+
+    valueBoxOutput(
+      "redeployment_not_redeployed",
+      width = 4
+    )
+
+  ),
+
+  # -------------------------------------------------------
+  # REDEPLOYMENT RESULTS
+  # -------------------------------------------------------
+
+  fluidRow(
+
+    box(
+      title = "Redeployment Search Results",
+      width = 12,
+      status = "success",
+      solidHeader = TRUE,
+
+      DTOutput(
+        "redeployment_results"
+      )
+    )
+
+  ),
+
+  # -------------------------------------------------------
+  # ALL COLLAR RECORDS WITH DEPLOYMENT CODE
+  # -------------------------------------------------------
+
+  fluidRow(
+
+    box(
+      title = "Collar Deployment Register",
+      width = 12,
+      status = "primary",
+      solidHeader = TRUE,
+
+      DTOutput(
+        "deployment_register"
+      )
+    )
+
+  ),
+
+  # -------------------------------------------------------
+  # REDEPLOYMENT ACTIVITY GRAPH
+  # -------------------------------------------------------
+
+  fluidRow(
+
+    box(
+      title = "Redeployment Activity",
+      width = 12,
+      status = "info",
+      solidHeader = TRUE,
+
+      plotOutput(
+        "redeployment_activity",
+        height = "500px"
+      )
+    )
+
+  )
+
+),
+
+     
+      # PAGE 5 - INTERACTIVE MAP
+   tabItem( 
+     tabName = "map", 
+     h2("Interactive Collar Map"), 
+     fluidRow( 
+       box( 
+         title = "Map Controls", 
+         width = 12, 
+         status = "primary", 
+         solidHeader = TRUE, 
+         
+         selectInput( 
+           inputId = "map_basemap", 
+           label = "Choose Base Map:", 
+           choices = c( 
+             "Satellite" = "Esri.WorldImagery", 
+             "OpenStreetMap" = "OpenStreetMap", 
+             "Topographic" = "Esri.WorldTopoMap", 
+             "Street Map" = "Esri.WorldStreetMap", 
+             "Terrain" = "Esri.WorldTerrain", 
+             "Light Map" = "CartoDB.Positron", 
+             "Dark Map" = "CartoDB.DarkMatter" 
+             ), 
+           selected = "Esri.WorldImagery" 
+           ) 
+         ) 
+       ), 
+     fluidRow( 
+       box( 
+         title = "Interactive Collar Map", 
+         width = 12, 
+         
+         leafletOutput( 
+           "map", 
+           height = 700 
+           ) 
+         ) 
+       ) 
+     ),
+      
+     
+      # PAGE 6 - HOTSPOT MAP
+# ---------------------------------------------------------
+# HOTSPOT MAP
+# ---------------------------------------------------------
+
+tabItem( 
+  tabName = "hotspot", 
+  h2("Wildlife Collar Hotspot Map"), 
+  fluidRow( 
+    box( 
+      title = "Map Controls", 
+      width = 12, 
+      status = "primary", 
+      solidHeader = TRUE, 
+      
+      selectInput( 
+        inputId = "hotspot_basemap", 
+        label = "Choose Base Map:", 
+        choices = c( 
+          "Satellite" = "Esri.WorldImagery", 
+          "OpenStreetMap" = "OpenStreetMap", 
+          "Topographic" = "Esri.WorldTopoMap", 
+          "Street Map" = "Esri.WorldStreetMap", 
+          "Terrain" = "Esri.WorldTerrain", 
+          "Light Map" = "CartoDB.Positron", 
+          "Dark Map" = "CartoDB.DarkMatter" 
+        ), 
+        selected = "Esri.WorldImagery" 
+        ) 
+      ) 
+    ), 
+  fluidRow( 
+    box( 
+      title = "Wildlife Collar Hotspot Map", 
+      width = 12, 
+      
+      leafletOutput( 
+        "hotspot", 
+        height = 700 
+        ) 
+      ) 
+    ) 
+  ),
+
+      
+      
+      
+      # PAGE 7 - IMMOBILITY REASONS
+     
+      
+      tabItem(
+        
+        tabName = "immobile",
+        
+        fluidRow(
+          
+          box(
+            title = "Collar Failure by Brand",
+            width = 12,
+            status = "danger",
+            solidHeader = TRUE,
+            
+            plotOutput(
+              "failure_brand_graph",
+              height = "500px"
+            )
+            
+          ),
+        
+          box(
+            title = "Poached vs Natural Mortality",
+            width = 12,
+            status = "warning",
+            solidHeader = TRUE,
+            
+            plotOutput(
+              "mortality_graph",
+              height = "500px"
+            )
+            
+          )
+        )
+      ),
+        
+      
+      
+     
+      # PAGE 8 - MOVEMENT ANALYSIS
+     
+      
+      tabItem(
+        
+        tabName = "movement",
+        
+        fluidRow(
+          
+          box(
+            title = "Movement Filters",
+            width = 12,
+            status = "primary",
+            solidHeader = TRUE,
+            
+            fluidRow(
+              
+              column(
+                width = 4,
+                
+                selectizeInput(
+                  "movement_park",
+                  "Select Park:",
+                  choices = sort(unique(collars$Parks))
+                )
+                
+              ),
+              
+              column(
+                width = 4,
+                
+                selectizeInput(
+                  "movement_species",
+                  "Select Species:",
+                  choices = c(
+                    "All Species",
+                    sort(unique(collars$Species))
+                  )
+                )
+                
+              ),
+              
+              column(
+                width = 4,
+                
+                dateRangeInput(
+                  "movement_dates",
+                  "Movement Period:",
+                  start = min(collars$Date.Deployed, na.rm = TRUE),
+                  end = Sys.Date()
+                )
+                
+              )
+              
+            )
+            
+          )
+          
+        ),
+        
+        fluidRow(
+          
+          box(
+            title = "Home Range",
+            width = 6,
+            
+            plotOutput(
+              "home_range",
+              height = "500px"
+            )
+            
+          ),
+          
+          box(
+            title = "Seasonal Movement",
+            width = 6,
+            
+            plotOutput(
+              "seasonal_movement",
+              height = "500px"
+            )
+            
+          )
+          
+        ),
+        
+        fluidRow(
+          
+          box(
+            title = "Wildlife-Human Conflict",
+            width = 12,
+            
+            leafletOutput(
+              "conflict_map",
+              height = 650
+            )
+            
+          )
+          
+        ),
+        
+        fluidRow(
+          
+          box(
+            title = "Wildlife-Human Conflict Summary",
+            width = 12,
+            
+            DTOutput(
+              "conflict_summary"
+            )
+            
+          )
+          
+        )
+        
+      )
+      
+    )
+    
+  )
+)
+
+
+```
+
+
+
+
+```{r}
+# SERVER
+
+
+server <- function(input, output, session) {
+  
+  
+ 
+  # PREPARE DATA
+  
+  
+  collars <- read.csv("Collar data(Sheet1).csv",
+                      stringsAsFactors = FALSE)
+  
+  
+  collars <- collars %>%  
+  mutate(
+    Date.Deployed = dmy(trimws(as.character(Date.Deployed)), quiet = TRUE),
+    Date.Deactivated = dmy(trimws(as.character(Date.Deactivated)), quiet = TRUE),
+    
+    GPS.Y = as.numeric(as.character(GPS.Y)),
+    GPS.X = as.numeric(as.character(GPS.X)),
+    
+    Last.Fix.X = as.numeric(as.character(Last.Fix.X)),
+    Last.Fix.Y = as.numeric(as.character(Last.Fix.Y))
+  )
+  
+  
+
+  # PAGE 1
+  # PARK SEARCH
+
+  
+  dashboard_data <- reactive({
+    
+    if (
+      is.null(input$park_search) ||
+      input$park_search == "All Parks"
+    ) {
+      
+      collars
+      
+    } else {
+      
+      collars %>%
+        filter(
+          Parks == input$park_search
+        )
+      
+    }
+    
+  })
+  
+  
+  # TOTAL COLLARS
+
+  
+  output$total <- renderValueBox({
+    
+    valueBox(
+      
+      value = nrow(
+        dashboard_data()
+      ),
+      
+      subtitle = "Total Collars",
+      
+      icon = icon("paw"),
+      
+      color = "green"
+      
+    )
+    
+  })
+  
+  
+ 
+  # ACTIVE COLLARS
+ 
+  
+  output$active <- renderValueBox({
+    
+    valueBox(
+      
+      value = sum(
+        dashboard_data()$State == "Active",
+        na.rm = TRUE
+      ),
+      
+      subtitle = "Active Collars",
+      
+      icon = icon("check"),
+      
+      color = "blue"
+      
+    )
+    
+  })
+  
+  
+  
+  # INACTIVE COLLARS
+  
+  
+  output$inactive <- renderValueBox({
+    
+    valueBox(
+      
+      value = sum(
+        dashboard_data()$State == "Deactivated",
+        na.rm = TRUE
+      ),
+      
+      subtitle = "Inactive Collars",
+      
+      icon = icon("times"),
+      
+      color = "red"
+      
+    )
+    
+  })
+  
+  
+ 
+  # REDEPLOYED COLLARS
+  
+  
+  output$redeployed <- renderValueBox({
+    
+    valueBox(
+      
+      value = sum(
+        dashboard_data()$State == "Redeployed",
+        na.rm = TRUE
+      ),
+      
+      subtitle = "Redeployed Collars",
+      
+      icon = icon("refresh"),
+      
+      color = "yellow"
+      
+    )
+    
+  })
+  
+  
+ 
+  # YEARLY ACTIVITY
+  
+  
+  output$yearly_activity <- renderPlot({
+    
+    yearly_data <- dashboard_data() %>%
+      
+      filter(
+        !is.na(Date.Deployed)
+      ) %>%
+      
+      mutate(
+        
+        Year =
+          year(Date.Deployed)
+        
+      ) %>%
+      
+      group_by(
+        Year,
+        State
+      ) %>%
+      
+      summarise(
+        Number = n(),
+        .groups = "drop"
+      )
+    
+    
+    ggplot(
+      yearly_data,
+      aes(
+        x = Year,
+        y = Number,
+        fill = State
+      )
+    ) +
+      
+      geom_col(
+        position = "dodge"
+      ) +
+      
+      labs(
+        title = "Collar Activity Per Year",
+        x = "Year",
+        y = "Number of Collars",
+        fill = "Status"
+      ) +
+      
+      theme_minimal() +
+      
+      theme(
+        axis.text.x =
+          element_text(
+            angle = 45,
+            hjust = 1
+          )
+      )
+    
+  })
+  
+  # PAGE 2
+  # INTERACTIVE TABLE
+  
+  
+  output$table <- renderDT({
+    
+    datatable(
+      
+      dashboard_data(),
+      
+      filter = "top",
+      
+      extensions = "Buttons",
+      
+      options = list(
+        
+        pageLength = 15,
+        
+        scrollX = TRUE,
+        
+        dom = "Bfrtip",
+        
+        buttons = c(
+          "copy",
+          "csv",
+          "excel",
+          "print"
+        )
+        
+      )
+      
+    )
+    
+  })
+  
+ # ==============================
+# PAGE 3 - COLLAR ACTIVITY
+# ==============================
+
+
+# =========================================================
+# UPDATE PARK DROPDOWN
+# =========================================================
+
+observe({
+
+  park_list <- sort(
+    unique(
+      na.omit(collars$Parks)
+    )
+  )
+
+  updateSelectizeInput(
+    session,
+    "activity_park",
+    choices = c(
+      "All Parks",
+      park_list
+    ),
+    selected = "All Parks"
+  )
+
+})
+
+
+# =========================================================
+# UPDATE SPECIES DROPDOWN
+# =========================================================
+
+observe({
+
+  species_list <- sort(
+    unique(
+      na.omit(collars$Species)
+    )
+  )
+
+  updateSelectizeInput(
+    session,
+    "activity_species",
+    choices = c(
+      "All Species",
+      species_list
+    ),
+    selected = "All Species"
+  )
+
+})
+
+
+# =========================================================
+# FILTER COLLAR DATA
+# =========================================================
+
+activity_data <- reactive({
+
+  req(input$activity_dates)
+
+  data <- collars %>%
+
+    filter(
+      !is.na(Date.Deployed),
+      Date.Deployed <= input$activity_dates[2]
+    )
+
+
+  # -------------------------------------------------------
+  # PARK FILTER
+  # -------------------------------------------------------
+
+  if (
+    !is.null(input$activity_park) &&
+    input$activity_park != "All Parks"
+  ) {
+
+    data <- data %>%
+      filter(
+        Parks == input$activity_park
+      )
+
+  }
+
+
+  # -------------------------------------------------------
+  # SPECIES FILTER
+  # -------------------------------------------------------
+
+  if (
+    !is.null(input$activity_species) &&
+    input$activity_species != "All Species"
+  ) {
+
+    data <- data %>%
+      filter(
+        Species == input$activity_species
+      )
+
+  }
+
+
+  data
+
+})
+
+
+# =========================================================
+# NEWLY DEPLOYED COLLARS
+# =========================================================
+
+newly_deployed <- reactive({
+
+  req(input$activity_dates)
+
+  activity_data() %>%
+
+    filter(
+
+      Date.Deployed >= input$activity_dates[1],
+
+      Date.Deployed <= input$activity_dates[2]
+
+    )
+
+})
+
+
+# =========================================================
+# RECORDED DEPLOYMENTS OVERLAPPING SELECTED PERIOD
+# =========================================================
+
+active_during_period <- reactive({
+
+  req(input$activity_dates)
+
+  activity_data() %>%
+
+    filter(
+
+      Date.Deployed <= input$activity_dates[2],
+
+      is.na(Date.Deactivated) |
+        Date.Deactivated >= input$activity_dates[1]
+
+    )
+
+})
+
+
+# =========================================================
+# COLLARS DEPLOYED WITHIN SELECTED PERIOD
+# =========================================================
+
+deployed_within_period <- reactive({
+
+  req(input$activity_dates)
+
+  activity_data() %>%
+
+    filter(
+
+      Date.Deployed >= input$activity_dates[1],
+
+      Date.Deployed <= input$activity_dates[2]
+
+    ) %>%
+
+    mutate(
+
+      Status = ifelse(
+
+        is.na(Date.Deactivated),
+
+        "End date unknown",
+
+        "Deactivated date recorded"
+
+      )
+
+    )
+
+})
+
+
+# =========================================================
+# COLLARS OVERLAPPING SELECTED PERIOD
+# =========================================================
+
+overlapping_period <- reactive({
+
+  req(input$activity_dates)
+
+  activity_data() %>%
+
+    filter(
+
+      Date.Deployed <= input$activity_dates[2],
+
+      is.na(Date.Deactivated) |
+        Date.Deactivated >= input$activity_dates[1]
+
+    ) %>%
+
+    mutate(
+
+      Status = ifelse(
+
+        is.na(Date.Deactivated),
+
+        "End date unknown",
+
+        "Overlaps selected period"
+
+      )
+
+    )
+
+})
+
+
+# =========================================================
+# COLLARS WITH UNKNOWN END DATE
+# =========================================================
+
+unknown_end_date <- reactive({
+
+  req(input$activity_dates)
+
+  activity_data() %>%
+
+    filter(
+
+      Date.Deployed <= input$activity_dates[2],
+
+      is.na(Date.Deactivated)
+
+    ) %>%
+
+    mutate(
+
+      Status = "End date unknown"
+
+    )
+
+})
+
+
+# =========================================================
+# VALUE BOX - NEWLY DEPLOYED
+# =========================================================
+
+output$activity_new <- renderValueBox({
+
+  valueBox(
+
+    value = nrow(
+      newly_deployed()
+    ),
+
+    subtitle = "Newly Deployed During Period",
+
+    icon = icon("plus"),
+
+    color = "green"
+
+  )
+
+})
+
+
+# =========================================================
+# VALUE BOX - OVERLAPPING
+# =========================================================
+
+output$activity_active <- renderValueBox({
+
+  valueBox(
+
+    value = nrow(
+      active_during_period()
+    ),
+
+    subtitle = "Recorded Deployments Overlapping Period",
+
+    icon = icon("check"),
+
+    color = "blue"
+
+  )
+
+})
+
+
+# =========================================================
+# VALUE BOX - TOTAL
+# =========================================================
+
+output$activity_total <- renderValueBox({
+
+  valueBox(
+
+    value = nrow(
+      activity_data()
+    ),
+
+    subtitle = "Total Recorded Collars",
+
+    icon = icon("paw"),
+
+    color = "yellow"
+
+  )
+
+})
+
+
+# =========================================================
+# COLLAR ACTIVITY SUMMARY
+# =========================================================
+
+output$activity_table <- renderDT({
+
+  req(input$activity_dates)
+
+  data <- activity_data()
+
+
+  validate(
+
+    need(
+
+      nrow(data) > 0,
+
+      "No collar records match the selected filters."
+
+    )
+
+  )
+
+
+  summary_data <- data %>%
+
+    group_by(
+      Species
+    ) %>%
+
+    summarise(
+
+      `Newly Deployed` = sum(
+
+        Date.Deployed >= input$activity_dates[1] &
+
+        Date.Deployed <= input$activity_dates[2],
+
+        na.rm = TRUE
+
+      ),
+
+      `Recorded Deployments Overlapping Period` = sum(
+
+        Date.Deployed <= input$activity_dates[2] &
+
+        (
+          is.na(Date.Deactivated) |
+          Date.Deactivated >= input$activity_dates[1]
+        ),
+
+        na.rm = TRUE
+
+      ),
+
+      `End Date Unknown` = sum(
+
+        Date.Deployed <= input$activity_dates[2] &
+
+        is.na(Date.Deactivated),
+
+        na.rm = TRUE
+
+      ),
+
+      `Total Records` = n(),
+
+      .groups = "drop"
+
+    )
+
+
+  datatable(
+
+    summary_data,
+
+    rownames = FALSE,
+
+    options = list(
+
+      pageLength = 15,
+
+      scrollX = TRUE,
+
+      autoWidth = TRUE
+
+    )
+
+  )
+
+})
+
+
+# =========================================================
+# TABLE 1 - DEPLOYED WITHIN PERIOD
+# =========================================================
+
+output$deployed_within_table <- renderDT({
+
+  data <- deployed_within_period() %>%
+
+    select(
+
+      SAT.ID,
+
+      Name.of.individual,
+
+      Species,
+
+      Parks,
+
+      Brand,
+
+      Date.Deployed,
+      
+      State,
+      
+      Date.Deactivated,
+
+      Status
+
+    )
+
+
+  datatable(
+
+    data,
+
+    rownames = FALSE,
+
+    options = list(
+
+      pageLength = 15,
+
+      scrollX = TRUE,
+
+      autoWidth = TRUE
+
+    )
+
+  )
+
+})
+
+
+# =========================================================
+# TABLE 2 - OVERLAPPING PERIOD
+# =========================================================
+
+output$overlapping_table <- renderDT({
+
+  data <- overlapping_period() %>%
+
+    select(
+
+      SAT.ID,
+
+      Name.of.individual,
+
+      Species,
+
+      Parks,
+
+      Brand,
+
+      Date.Deployed,
+      
+      State,
+
+      Date.Deactivated,
+
+      Status
+
+    )
+
+
+  datatable(
+
+    data,
+
+    rownames = FALSE,
+
+    options = list(
+
+      pageLength = 15,
+
+      scrollX = TRUE,
+
+      autoWidth = TRUE
+
+    )
+
+  )
+
+})
+
+
+# =========================================================
+# TABLE 3 - UNKNOWN END DATE
+# =========================================================
+
+output$unknown_end_table <- renderDT({
+
+  data <- unknown_end_date() %>%
+
+    select(
+
+      SAT.ID,
+
+      Name.of.individual,
+
+      Species,
+
+      Parks,
+
+      Brand,
+
+      Date.Deployed,
+      
+      State,
+
+      Date.Deactivated,
+
+      Status
+
+    )
+
+
+  datatable(
+
+    data,
+
+    rownames = FALSE,
+
+    options = list(
+
+      pageLength = 15,
+
+      scrollX = TRUE,
+
+      autoWidth = TRUE
+
+    )
+
+  )
+
+})
+
+
+# =========================================================
+# MONTHLY COLLAR ACTIVITY
+# =========================================================
+
+output$monthly_activity <- renderPlot({
+
+  req(input$activity_dates)
+
+
+  data <- newly_deployed()
+
+
+  validate(
+
+    need(
+
+      nrow(data) > 0,
+
+      "No collars were newly deployed during the selected period."
+
+    )
+
+  )
+
+
+  monthly_data <- data %>%
+
+    mutate(
+
+      Month = floor_date(
+        Date.Deployed,
+        unit = "month"
+      )
+
+    ) %>%
+
+    group_by(
+
+      Month,
+
+      Species
+
+    ) %>%
+
+    summarise(
+
+      `Newly Deployed` = n(),
+
+      .groups = "drop"
+
+    )
+
+
+  ggplot(
+
+    monthly_data,
+
+    aes(
+
+      x = Month,
+
+      y = `Newly Deployed`,
+
+      fill = Species
+
+    )
+
+  ) +
+
+    geom_col(
+
+      position = "dodge"
+
+    ) +
+
+    labs(
+
+      title = "Monthly Newly Deployed Collars",
+
+      x = "Month",
+
+      y = "Number of Collars",
+
+      fill = "Species"
+
+    ) +
+
+    scale_x_date(
+
+      date_breaks = "1 month",
+
+      date_labels = "%b %Y"
+
+    ) +
+
+    theme_minimal() +
+
+    theme(
+
+      axis.text.x = element_text(
+
+        angle = 45,
+
+        hjust = 1
+
+      ),
+
+      plot.title = element_text(
+
+        face = "bold"
+
+      )
+
+    )
+
+})
+
+# PAGE 4-Redeployment register
+
+# ---------------------------------------------------------
+# DATA FOR COLLARS WITH DEPLOYMENT CODES
+# ---------------------------------------------------------
+
+deployment_register_data <- reactive({
+
+  data <- collars %>%
+    filter(
+      !is.na(Deployment.code),
+      trimws(Deployment.code) != ""
+    )
+
+  # Search
+  search_text <- trimws(input$redeployment_search)
+
+  if (!is.null(search_text) &&
+      search_text != "") {
+
+    search_lower <- tolower(search_text)
+
+    data <- data %>%
+      filter(
+        grepl(
+          search_lower,
+          tolower(as.character(Deployment.code)),
+          fixed = TRUE
+        ) |
+
+        grepl(
+          search_lower,
+          tolower(as.character(SAT.ID)),
+          fixed = TRUE
+        ) |
+
+        grepl(
+          search_lower,
+          tolower(as.character(Name.of.individual)),
+          fixed = TRUE
+        ) |
+
+        grepl(
+          search_lower,
+          tolower(as.character(Species)),
+          fixed = TRUE
+        ) |
+
+        grepl(
+          search_lower,
+          tolower(as.character(Parks)),
+          fixed = TRUE
+        )
+      )
+  }
+
+  data
+
+})
+
+
+# ---------------------------------------------------------
+# IDENTIFY REDEPLOYED COLLARS
+# ---------------------------------------------------------
+
+redeployment_data <- reactive({
+
+  data <- deployment_register_data()
+
+  if (nrow(data) == 0) {
+    return(data)
+  }
+
+  # A collar is considered redeployed when its
+  # State is recorded as Redeployed.
+
+  data %>%
+    mutate(
+      Redeployment.Status = case_when(
+
+        tolower(trimws(as.character(State))) ==
+          "redeployed" ~ "Redeployed",
+
+        TRUE ~ "Not Redeployed"
+
+      )
+    )
+
+})
+
+
+# ---------------------------------------------------------
+# TOTAL COLLARS WITH DEPLOYMENT CODES
+# ---------------------------------------------------------
+
+output$redeployment_total <- renderValueBox({
+
+  data <- deployment_register_data()
+
+  valueBox(
+    value = nrow(data),
+    subtitle = "Records With Deployment Code",
+    icon = icon("tag"),
+    color = "blue"
+  )
+
+})
+
+
+# ---------------------------------------------------------
+# REDEPLOYED COLLARS
+# ---------------------------------------------------------
+
+output$redeployment_redeployed <- renderValueBox({
+
+  data <- redeployment_data() %>%
+    filter(
+      Redeployment.Status == "Redeployed"
+    )
+
+  valueBox(
+    value = nrow(data),
+    subtitle = "Redeployed Records",
+    icon = icon("rotate"),
+    color = "green"
+  )
+
+})
+
+
+# ---------------------------------------------------------
+# NOT REDEPLOYED
+# ---------------------------------------------------------
+
+output$redeployment_not_redeployed <- renderValueBox({
+
+  data <- redeployment_data() %>%
+    filter(
+      Redeployment.Status == "Not Redeployed"
+    )
+
+  valueBox(
+    value = nrow(data),
+    subtitle = "Other Deployment Records",
+    icon = icon("list"),
+    color = "yellow"
+  )
+
+})
+
+
+# ---------------------------------------------------------
+# SEARCH RESULTS
+# ---------------------------------------------------------
+
+output$redeployment_results <- renderDT({
+
+  data <- redeployment_data()
+
+  if (nrow(data) == 0) {
+
+    return(
+      datatable(
+        data.frame(
+          Message =
+            "No collar matching the search was found."
+        ),
+        rownames = FALSE
+      )
+    )
+
+  }
+
+  results <- data %>%
+    select(
+      Deployment.code,
+      SAT.ID,
+      Name.of.individual,
+      Species,
+      Parks,
+      Date.Deployed,
+      Time.Deployed,
+      State,
+      Redeployment.Status
+    )
+
+  datatable(
+    results,
+    rownames = FALSE,
+    filter = "top",
+    options = list(
+      pageLength = 15,
+      scrollX = TRUE,
+      autoWidth = TRUE
+    )
+  )
+
+})
+
+
+# ---------------------------------------------------------
+# COMPLETE DEPLOYMENT REGISTER
+# ---------------------------------------------------------
+
+output$deployment_register <- renderDT({
+
+  data <- deployment_register_data()
+
+  validate(
+    need(
+      nrow(data) > 0,
+      "No records with a Deployment Code were found."
+    )
+  )
+
+  datatable(
+    data,
+    rownames = FALSE,
+    filter = "top",
+    extensions = "Buttons",
+    options = list(
+
+      pageLength = 15,
+
+      scrollX = TRUE,
+
+      autoWidth = TRUE,
+
+      dom = "Bfrtip",
+
+      buttons = c(
+        "copy",
+        "csv",
+        "excel",
+        "print"
+      )
+
+    )
+  )
+
+})
+
+
+# ---------------------------------------------------------
+# REDEPLOYMENT ACTIVITY
+# ---------------------------------------------------------
+
+output$redeployment_activity <- renderPlot({
+
+  data <- redeployment_data() %>%
+    filter(
+      Redeployment.Status == "Redeployed",
+      !is.na(Date.Deployed)
+    )
+
+  validate(
+    need(
+      nrow(data) > 0,
+      "No redeployment records are available."
+    )
+  )
+
+  monthly_data <- data %>%
+    mutate(
+      Month = floor_date(
+        Date.Deployed,
+        unit = "month"
+      )
+    ) %>%
+    group_by(Month) %>%
+    summarise(
+      Redeployments = n(),
+      .groups = "drop"
+    )
+
+  ggplot(
+    monthly_data,
+    aes(
+      x = Month,
+      y = Redeployments,
+      group = 1
+    )
+  ) +
+
+    geom_line(
+      linewidth = 1
+    ) +
+
+    geom_point(
+      size = 3
+    ) +
+
+    labs(
+      title = "Redeployment Activity Over Time",
+      x = "Month",
+      y = "Number of Redeployments"
+    ) +
+
+    scale_x_date(
+      date_breaks = "1 month",
+      date_labels = "%b %Y"
+    ) +
+
+    theme_minimal() +
+
+    theme(
+      axis.text.x =
+        element_text(
+          angle = 45,
+          hjust = 1
+        ),
+
+      plot.title =
+        element_text(
+          face = "bold"
+        )
+    )
+
+})
+  
+ 
+  # PAGE 5
+  # INTERACTIVE MAP
+ collars_map <- collars %>% 
+   filter( 
+     !is.na(GPS.X), 
+     !is.na(GPS.Y) 
+   ) 
+ 
+ output$map <- renderLeaflet({ 
+   leaflet( 
+     data = collars_map ) %>% 
+# ----------------------------------------------------- # BASE MAPS # ----------------------------------------------------- 
+   
+   addProviderTiles( 
+     providers$Esri.WorldImagery, 
+     group = "Satellite" 
+   ) %>% 
+   addProviderTiles( 
+       providers$OpenStreetMap, 
+       group = "OpenStreetMap" 
+   ) %>%
+   addProviderTiles( 
+     providers$Esri.WorldTopoMap, 
+     group = "Topographic" 
+   ) %>% 
+   addProviderTiles( 
+     providers$Esri.WorldStreetMap, 
+     group = "Street Map" 
+   ) %>%
+   addProviderTiles( 
+     providers$Esri.WorldTerrain, 
+     group = "Terrain" 
+   ) %>% 
+   addProviderTiles( 
+     providers$CartoDB.Positron, 
+     group = "Light Map" 
+   ) %>% 
+  addProviderTiles( 
+    providers$CartoDB.DarkMatter, 
+    group = "Dark Map" 
+  ) %>% 
+     
+     # ----------------------------------------------------- 
+   # COLLAR LOCATIONS # ----------------------------------------------------- 
+   
+   addCircleMarkers( 
+     lng = ~GPS.Y, 
+     lat = ~GPS.X, 
+     radius = 6, 
+     stroke = TRUE, 
+     fillOpacity = 0.8, 
+     popup = 
+       ~paste0
+     ( "<b>Collar ID:</b> ", SAT.ID, 
+       "<br><b>Individual:</b> ", Name.of.individual,
+       "<br><b>Species:</b> ", Species, 
+       "<br><b>Sex:</b> ", D_Sex, 
+       "<br><b>Brand:</b> ", Brand, 
+       "<br><b>Park:</b> ", Parks, 
+       "<br><b>State:</b> ", State, 
+       "<br><b>Date Deployed:</b> ", Date.Deployed,
+       "<br><b>Date Deactivated:</b> ", Date.Deactivated 
+     ) 
+   ) 
+ }) 
+ 
+ # ========================================================= # CHANGE BASE MAP # ========================================================= 
+ observeEvent(input$map_basemap, { 
+   leafletProxy("map") %>% 
+     hideGroup("Satellite") %>% 
+     hideGroup("OpenStreetMap") %>% 
+     hideGroup("Topographic") %>% 
+     hideGroup("Street Map") %>% 
+     hideGroup("Terrain") %>% 
+     hideGroup("Light Map") %>% 
+     hideGroup("Dark Map") %>% 
+     
+     showGroup( 
+       switch( 
+         input$map_basemap, 
+         "Esri.WorldImagery" = "Satellite", 
+         "OpenStreetMap" = "OpenStreetMap", 
+         "Esri.WorldTopoMap" = "Topographic",
+         "Esri.WorldStreetMap" = "Street Map",
+         "Esri.WorldTerrain" = "Terrain", 
+         "CartoDB.Positron" = "Light Map", 
+         "CartoDB.DarkMatter" = "Dark Map" 
+       ) 
+     ) 
+   })
+  
+   
+   
+  # PAGE 6
+# ---------------------------------------------------------
+# HOTSPOT MAP SERVER
+# ---------------------------------------------------------
+hotspot_data <- collars %>% 
+   filter( 
+     !is.na(Last.Fix.X), 
+     !is.na(Last.Fix.Y) 
+    ) 
+ output$hotspot <- renderLeaflet({ 
+   leaflet(
+     hotspot_data 
+     ) %>% 
+     
+     # ----------------------------------------------------- # BASE MAPS # -----------------------------------------------------
+  addProviderTiles( 
+     providers$Esri.WorldImagery, 
+     group = "Satellite" 
+   ) %>% 
+   addProviderTiles( 
+       providers$OpenStreetMap, 
+       group = "OpenStreetMap" 
+   ) %>%
+   addProviderTiles( 
+     providers$Esri.WorldTopoMap, 
+     group = "Topographic" 
+   ) %>% 
+   addProviderTiles( 
+     providers$Esri.WorldStreetMap, 
+     group = "Street Map" 
+   ) %>%
+   addProviderTiles( 
+     providers$Esri.WorldTerrain, 
+     group = "Terrain" 
+   ) %>% 
+   addProviderTiles( 
+     providers$CartoDB.Positron, 
+     group = "Light Map" 
+   ) %>% 
+  addProviderTiles( 
+    providers$CartoDB.DarkMatter, 
+    group = "Dark Map" 
+  ) %>% 
+     
+     # ----------------------------------------------------- # HOTSPOT # ----------------------------------------------------- 
+   addHeatmap( 
+     lng = ~Last.Fix.Y, 
+     lat = ~Last.Fix.X, 
+     radius = 30, 
+     blur = 20, 
+     max = 0.05 
+     ) 
+   }) 
+ # ========================================================= # CHANGE HOTSPOT BASE MAP # ========================================================= 
+ 
+ observeEvent(
+   input$hotspot_basemap, { 
+     leafletProxy("hotspot") %>% 
+       hideGroup("Satellite") %>% 
+       hideGroup("OpenStreetMap") %>% 
+       hideGroup("Topographic") %>% 
+       hideGroup("Street Map") %>% 
+       hideGroup("Terrain") %>% 
+       hideGroup("Light Map") %>% 
+       hideGroup("Dark Map") %>% 
+       
+       showGroup( 
+         switch( 
+           input$hotspot_basemap, 
+           "Esri.WorldImagery" = "Satellite", 
+           "OpenStreetMap" = "OpenStreetMap",
+           "Esri.WorldTopoMap" = "Topographic",
+           "Esri.WorldStreetMap" = "Street Map",
+           "Esri.WorldTerrain" = "Terrain", 
+           "CartoDB.Positron" = "Light Map",
+           "CartoDB.DarkMatter" = "Dark Map" 
+          ) 
+        )
+     })
+  
+  
+  
+  # PAGE 7
+  # COLLAR FAILURE BY BRAND
+  output$failure_brand_graph <- renderPlot({
+
+  failure_data <- collars %>%
+    
+    mutate(
+      Brand_clean = str_trim(as.character(Brand)),
+      Reason_clean = str_to_lower(
+        str_trim(as.character(Reason))
+      )
+    ) %>%
+    
+    filter(
+      !is.na(Brand_clean),
+      Brand_clean != "",
+      str_detect(
+        Reason_clean,
+        "collar failure|battery failure|hardware"
+      )
+    ) %>%
+    
+    group_by(Brand_clean) %>%
+    
+    summarise(
+      Failures = n(),
+      .groups = "drop"
+    ) %>%
+    
+    arrange(Failures)
+
+
+  validate(
+    need(
+      nrow(failure_data) > 0,
+      "No collar failure records were found."
+    )
+  )
+
+
+  ggplot(
+    failure_data,
+    aes(
+      x = reorder(Brand_clean, Failures),
+      y = Failures
+    )
+  ) +
+    
+    geom_col() +
+    
+    coord_flip() +
+    
+    labs(
+      title = "Collar Failure by Brand",
+      x = "Collar Brand",
+      y = "Number of Failures"
+    ) +
+    
+    theme_minimal() +
+    
+    theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 12
+      ),
+      axis.text.y = element_text(size = 11)
+    )
+
+})
+  
+  
+  
+  
+  
+  # POACHED VS NATURAL MORTALITY
+  
+  
+  output$mortality_graph <- renderPlot({
+    
+    mortality_data <- collars %>%
+      
+      filter(
+        !is.na(Reason)
+      ) %>%
+      
+      mutate(
+        
+        Mortality =
+          case_when(
+            
+            str_detect(
+              str_to_lower(Reason),
+              "poach"
+            )
+            ~ "Poached",
+            
+            str_detect(
+              str_to_lower(Reason),
+              "natural"
+            )
+            ~ "Natural Mortality",
+            
+            TRUE
+            ~ NA_character_
+            
+          )
+        
+      ) %>%
+      
+      filter(
+        !is.na(Mortality)
+      ) %>%
+      
+      count(
+        Mortality
+      )
+    
+    
+    ggplot(
+      
+      mortality_data,
+      
+      aes(
+        
+        x =
+          Mortality,
+        
+        y =
+          n,
+        
+        fill =
+          Mortality
+        
+      )
+      
+    ) +
+      
+      geom_col() +
+      
+      labs(
+        
+        title =
+          "Poached vs Natural Mortality",
+        
+        x =
+          "Mortality Type",
+        
+        y =
+          "Number of Animals"
+        
+      ) +
+      
+      theme_minimal()
+    
+  })
+  
+  
+ 
+  # PAGE 8
+  # MOVEMENT DATA
+ 
+  
+  movement_data <- reactive({
+    
+    data <- collars %>%
+      
+      filter(
+        
+        Park ==
+          input$movement_park,
+        
+        !is.na(Last.Fix.X),
+        
+        !is.na(Last.Fix.Y)
+        
+      )
+    
+    
+    if (
+      input$movement_species !=
+      "All Species"
+    ) {
+      
+      data <- data %>%
+        
+        filter(
+          Species ==
+            input$movement_species
+        )
+      
+    }
+    
+    
+    data
+    
+  })
+  
+  
+  
+  # HOME RANGE
+  #
+  # This is a preliminary visualization based on the
+  # available collar fixes.
+ 
+  
+  output$home_range <- renderPlot({
+    
+    data <- movement_data()
+    
+    
+    if (
+      nrow(data) == 0
+    ) {
+      
+      plot.new()
+      
+      text(
+        0.5,
+        0.5,
+        "No movement data available"
+      )
+      
+      return()
+      
+    }
+    
+    
+    ggplot(
+      
+      data,
+      
+      aes(
+        
+        x =
+          Last.Fix.Y,
+        
+        y =
+          Last.Fix.X,
+        
+        group =
+          SAT.ID
+        
+      )
+      
+    ) +
+      
+      geom_point(
+        alpha = 0.5
+      ) +
+      
+      geom_path(
+        alpha = 0.3
+      ) +
+      
+      labs(
+        
+        title =
+          "Animal Movement / Home Range",
+        
+        x =
+          "Longitude",
+        
+        y =
+          "Latitude"
+        
+      ) +
+      
+      theme_minimal()
+    
+  })
+  
+  
+  
+  # SEASONAL MOVEMENT
+  
+  
+  output$seasonal_movement <- renderPlot({
+    
+    data <- movement_data()
+    
+    
+    if (
+      nrow(data) == 0
+    ) {
+      
+      plot.new()
+      
+      text(
+        0.5,
+        0.5,
+        "No movement data available"
+      )
+      
+      return()
+      
+    }
+    
+    
+    data <- data %>%
+      
+      mutate(
+        
+        Month =
+          month(
+            Date.Deployed,
+            label = TRUE
+          )
+        
+      ) %>%
+      
+      count(
+        Month
+      )
+    
+    
+    ggplot(
+      
+      data,
+      
+      aes(
+        
+        x =
+          Month,
+        
+        y =
+          n
+        
+      )
+      
+    ) +
+      
+      geom_col() +
+      
+      labs(
+        
+        title =
+          "Seasonal Movement Activity",
+        
+        x =
+          "Month",
+        
+        y =
+          "Number of Records"
+        
+      ) +
+      
+      theme_minimal()
+    
+  })
+  
+  
+ 
+  # WILDLIFE-HUMAN CONFLICT MAP
+  
+  
+  output$conflict_map <- renderLeaflet({
+    
+    data <- movement_data()
+    
+    
+    leaflet() %>%
+      
+      addTiles() %>%
+      
+      addCircleMarkers(
+        
+        data =
+          data,
+        
+        lng =
+          ~Last.Fix.Y,
+        
+        lat =
+          ~Last.Fix.X,
+        
+        radius =
+          5,
+        
+        fillOpacity =
+          0.7,
+        
+        popup =
+          ~paste0(
+            
+            "<b>Species:</b> ",
+            Species,
+            
+            "<br><b>Individual:</b> ",
+            Name.of.individual,
+            
+            "<br><b>Reason:</b> ",
+            Reason
+            
+          )
+        
+      )
+    
+  })
+  
+  
+ 
+  # CONFLICT SUMMARY
+  
+  
+  output$conflict_summary <- renderDT({
+    
+    data <- movement_data()
+    
+    
+    summary <- data %>%
+      
+      group_by(
+        Species
+      ) %>%
+      
+      summarise(
+        
+        `Number of Animals` =
+          n_distinct(
+            Name.of.individual
+          ),
+        
+        `Recorded Deaths` =
+          sum(
+            !is.na(Reason) &
+              str_detect(
+                str_to_lower(Reason),
+                "poach|natural"
+              ),
+            na.rm = TRUE
+          ),
+        
+        `Movement Records` =
+          n(),
+        
+        .groups =
+          "drop"
+        
+      )
+    
+    
+    datatable(
+      
+      summary,
+      
+      options = list(
+        pageLength = 10,
+        scrollX = TRUE
+      )
+      
+    )
+   
+  })
+  
+}
+```
+
+```{r}
+shinyApp(
+  ui = ui,
+  server = server
+)
+```
+
+
